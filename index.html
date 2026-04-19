@@ -984,7 +984,37 @@
     // Low thud underneath for weight
     tone(90, 0.1, "sine", 0.14);
   }
-  function pluck() { tone(1100 + Math.random()*400, 0.18, "triangle", 0.18); tone(1800, 0.08, "sine", 0.08, 0.02); }
+  // Pentatonic berry pluck — pentatonic scale means any combination sounds consonant
+  const BERRY_NOTES = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.5]; // C D E G A C (C major pentatonic)
+  let lastBerryNoteIdx = -1;
+  function pluck() {
+    if (!audioReady || !audioCtx) return;
+    // Avoid repeating the exact same note back-to-back
+    let idx;
+    do { idx = (Math.random() * BERRY_NOTES.length) | 0; } while (idx === lastBerryNoteIdx && BERRY_NOTES.length > 1);
+    lastBerryNoteIdx = idx;
+    const f = BERRY_NOTES[idx];
+    const t0 = audioCtx.currentTime;
+    // Soft plucky envelope: triangle fundamental + octave harmonic for sparkle
+    const osc1 = audioCtx.createOscillator();
+    osc1.type = "triangle";
+    osc1.frequency.setValueAtTime(f, t0);
+    const g1 = audioCtx.createGain();
+    g1.gain.setValueAtTime(0.0001, t0);
+    g1.gain.exponentialRampToValueAtTime(0.18, t0 + 0.008);
+    g1.gain.exponentialRampToValueAtTime(0.001, t0 + 0.28);
+    osc1.connect(g1).connect(audioCtx.destination);
+    osc1.start(t0); osc1.stop(t0 + 0.3);
+    const osc2 = audioCtx.createOscillator();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(f * 2, t0);
+    const g2 = audioCtx.createGain();
+    g2.gain.setValueAtTime(0.0001, t0);
+    g2.gain.exponentialRampToValueAtTime(0.05, t0 + 0.01);
+    g2.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
+    osc2.connect(g2).connect(audioCtx.destination);
+    osc2.start(t0); osc2.stop(t0 + 0.2);
+  }
   function happyPop() { tone(660, 0.1, "triangle", 0.15); tone(990, 0.1, "sine", 0.1, 0.05); }
   function risingWhoosh() {
     if (!audioReady || !audioCtx) return;

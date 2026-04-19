@@ -1809,53 +1809,22 @@
     setTimeout(() => c.remove(), 2100);
   }
 
-  /* ---- Treasure Mountain — X marks the spot ---- */
+  /* ---- Treasure Mountain — tap mountain to dig up a chest ---- */
   function renderTreasure(stage) {
     const { wrap, img } = mkStage(stage, "treasure-mountain");
-    // Position X at approx 45% x, 60% y of the image.
-    const X_FRAC_X = 0.45;
-    const X_FRAC_Y = 0.60;
-
-    const xMark = document.createElement("div");
-    xMark.className = "x-mark";
-    // Golden sparkle star — reads as "something good here!" instead of a cross-out
-    xMark.innerHTML = `<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <radialGradient id="starG" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#fff5c2"/>
-          <stop offset="45%" stop-color="#ffd84a"/>
-          <stop offset="100%" stop-color="#e0a014"/>
-        </radialGradient>
-      </defs>
-      <polygon points="30,4 35,25 56,30 35,35 30,56 25,35 4,30 25,25" fill="url(#starG)" stroke="#9c6b0c" stroke-width="1.5" stroke-linejoin="round"/>
-      <circle cx="30" cy="30" r="4" fill="#fff" opacity="0.85"/>
-    </svg>`;
-    wrap.appendChild(xMark);
-
-    function placeXMark() {
-      const w = img.clientWidth, h = img.clientHeight;
-      if (!w || !h) return;
-      xMark.style.left = (img.offsetLeft + w * X_FRAC_X) + "px";
-      xMark.style.top  = (img.offsetTop  + h * X_FRAC_Y) + "px";
-    }
-    if (img.complete) placeXMark();
-    else img.addEventListener("load", placeXMark, { once: true });
-    const onResize = () => placeXMark();
-    window.addEventListener("resize", onResize);
-    backBtn.addEventListener("click", () => window.removeEventListener("resize", onResize), { once: true });
 
     let dug = false;
     let chest = null;
 
-    xMark.addEventListener("click", (e) => {
-      e.stopPropagation();
+    img.addEventListener("click", (e) => {
       if (dug) return;
       dug = true;
-      const xLeft = parseFloat(xMark.style.left);
-      const xTop  = parseFloat(xMark.style.top);
+      const { x, y } = relTapXY(img, e);
+      const xLeft = img.offsetLeft + x;
+      const xTop  = img.offsetTop  + y;
       digSound();
 
-      // Dirt puffs spraying from X
+      // Dirt puffs spraying from dig point
       const puffs = 7;
       for (let i = 0; i < puffs; i++) {
         const p = document.createElement("div");
@@ -1873,10 +1842,6 @@
         wrap.appendChild(p);
         setTimeout(() => p.remove(), 1000);
       }
-
-      // Fade out X
-      xMark.classList.add("fading");
-      setTimeout(() => xMark.remove(), 320);
 
       // Rise chest after a brief delay
       setTimeout(() => {
@@ -1898,22 +1863,15 @@
               <stop offset="100%" stop-color="#d9a317"/>
             </radialGradient>
           </defs>
-          <!-- Chest body -->
           <rect x="18" y="58" width="84" height="44" rx="4" fill="url(#woodL)" stroke="#3f2710" stroke-width="2.5"/>
-          <!-- Wood planks -->
           <line x1="40" y1="58" x2="40" y2="102" stroke="#3f2710" stroke-width="1.2" opacity="0.6"/>
           <line x1="60" y1="58" x2="60" y2="102" stroke="#3f2710" stroke-width="1.2" opacity="0.6"/>
           <line x1="80" y1="58" x2="80" y2="102" stroke="#3f2710" stroke-width="1.2" opacity="0.6"/>
-          <!-- Iron bands -->
           <rect x="16" y="64" width="88" height="5" fill="#3a3028" stroke="#1a1410" stroke-width="0.8"/>
           <rect x="16" y="92" width="88" height="5" fill="#3a3028" stroke="#1a1410" stroke-width="0.8"/>
-          <!-- Lid (open, tilted back) -->
           <path d="M 14 58 Q 60 26 106 58 Q 106 50 60 22 Q 14 50 14 58 Z" fill="url(#lidL)" stroke="#3f2710" stroke-width="2.5"/>
-          <!-- Lid band -->
           <path d="M 20 50 Q 60 28 100 50" fill="none" stroke="#3a3028" stroke-width="4" stroke-linecap="round"/>
-          <!-- Glow inside chest -->
           <ellipse cx="60" cy="62" rx="34" ry="6" fill="#fff5c2" opacity="0.8"/>
-          <!-- Gold coins spilling / glowing -->
           <g fill="url(#goldL)" stroke="#8a5f0a" stroke-width="1">
             <circle cx="40" cy="60" r="6"/>
             <circle cx="60" cy="58" r="7"/>
@@ -1921,19 +1879,16 @@
             <circle cx="50" cy="64" r="5"/>
             <circle cx="70" cy="65" r="5"/>
           </g>
-          <!-- Latch -->
           <rect x="55" y="70" width="10" height="12" fill="#f0c040" stroke="#6a4a0a" stroke-width="1.2"/>
           <circle cx="60" cy="76" r="1.8" fill="#3a2608"/>
         </svg>`;
         chest.style.left = xLeft + "px";
         chest.style.top  = xTop + "px";
         wrap.appendChild(chest);
-        // Trigger rise
         requestAnimationFrame(() => {
           requestAnimationFrame(() => chest.classList.add("risen"));
         });
         triumphant();
-        // Confetti burst from chest position
         setTimeout(() => {
           for (let i = 0; i < 22; i++) spawnConfetti(wrap, xLeft, xTop);
         }, 300);
@@ -1954,9 +1909,9 @@
     const { wrap, img } = mkStage(stage, "compass");
 
     // Overlay a floating needle on top of the drawn compass art.
-    // Compass center in the zone art is roughly 48% x, 55% y (of the cropped image).
-    const COMPASS_CX = 0.48;
-    const COMPASS_CY = 0.55;
+    // Compass center in the zone art is roughly 45% x, 58% y (of the cropped image).
+    const COMPASS_CX = 0.45;
+    const COMPASS_CY = 0.58;
 
     const overlay = document.createElement("div");
     overlay.className = "compass-needle-overlay";
@@ -1987,8 +1942,8 @@
       if (!w || !h) return;
       overlay.style.left = (img.offsetLeft + w * COMPASS_CX) + "px";
       overlay.style.top  = (img.offsetTop  + h * COMPASS_CY) + "px";
-      // Size the overlay to about 30% of image width so the needle sits over the drawn wheel
-      const size = Math.min(w * 0.32, h * 0.44);
+      // Size the overlay to span the drawn compass wheel (~46% of image width)
+      const size = Math.min(w * 0.50, h * 0.66);
       overlay.style.width = size + "px";
     }
     if (img.complete) placeOverlay();
@@ -2044,15 +1999,9 @@
   );
 
   /* =============================================================
-     Safety: prevent pinch-zoom weirdness & iOS double-tap zoom
+     Safety: prevent pinch-zoom weirdness
      ============================================================= */
   document.addEventListener("gesturestart", (e) => e.preventDefault());
-  let lastTouch = 0;
-  document.addEventListener("touchend", (e) => {
-    const now = Date.now();
-    if (now - lastTouch < 300) e.preventDefault();
-    lastTouch = now;
-  }, { passive: false });
   </script>
 </body>
 </html>

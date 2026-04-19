@@ -898,7 +898,10 @@
   const zoneStage = document.getElementById("zone-stage");
   const backBtn = document.getElementById("back-btn");
 
-  function openZone(idx) {
+  // When true, we're reacting to a hashchange/popstate — don't push another hash entry.
+  let suppressHashWrite = false;
+
+  function openZone(idx, opts = {}) {
     const z = ZONES[idx];
     zoneStage.innerHTML = "";
     zoneStage.className = "";
@@ -921,14 +924,52 @@
     fn(zoneStage, z);
     zoneScreen.classList.add("active");
     sparkle();
+    if (!opts.fromHash) {
+      // Push zone into URL so browser/phone back button returns to the map.
+      suppressHashWrite = true;
+      location.hash = z.id;
+      // Release the suppression after the hashchange event fires.
+      setTimeout(() => { suppressHashWrite = false; }, 0);
+    }
   }
 
-  function closeZone() {
+  function closeZone(opts = {}) {
     zoneScreen.classList.remove("active");
     zoneStage.innerHTML = "";
     zoneStage.className = "";
+    if (!opts.fromHash && location.hash) {
+      // If there's a hash, let history handle it (back-arrow should feel like back button).
+      suppressHashWrite = true;
+      history.back();
+      setTimeout(() => { suppressHashWrite = false; }, 0);
+    }
   }
-  backBtn.addEventListener("click", closeZone);
+  backBtn.addEventListener("click", () => closeZone());
+
+  // Hash-based routing: react to browser back/forward, phone back gesture, deep links.
+  function openZoneFromHash() {
+    const id = location.hash.replace(/^#/, "");
+    if (!id) {
+      if (zoneScreen.classList.contains("active")) closeZone({ fromHash: true });
+      return;
+    }
+    const idx = ZONES.findIndex(z => z.id === id);
+    if (idx === -1) {
+      // Unknown zone in hash — clean it up.
+      if (zoneScreen.classList.contains("active")) closeZone({ fromHash: true });
+      return;
+    }
+    openZone(idx, { fromHash: true });
+  }
+  window.addEventListener("hashchange", () => {
+    if (suppressHashWrite) return;
+    openZoneFromHash();
+  });
+  // Deep-link on initial load (e.g. bookmark or refresh on a zone URL).
+  if (location.hash) {
+    // Defer so hotspots/map img load first; also ensures assets ready.
+    window.addEventListener("load", () => openZoneFromHash(), { once: true });
+  }
 
   /* =============================================================
      VACATION ISLAND (polished)

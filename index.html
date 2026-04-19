@@ -101,21 +101,14 @@
       -webkit-appearance: none;
       appearance: none;
       -webkit-tap-highlight-color: transparent;
-      color: #fff4a8; /* used by the ::before fallback */
     }
-    /* Tiny pulsing dot inside each hotspot — solid yellow, scales only, no opacity/color shift */
-    .hotspot::before {
-      content: "";
+    /* Pulsing SVG dot — SVG fill colors are NOT touched by browser dark-mode inverters
+       (e.g. DuckDuckGo Android's force-dark) the way CSS backgrounds can be. */
+    .hotspot .dot {
+      width: 56px; height: 56px;
       display: block;
-      width: 22px; height: 22px;
-      border-radius: 50%;
-      background-color: #fff4a8;
-      box-shadow:
-        0 0 0 3px #ffffff,
-        0 0 14px rgba(255, 240, 150, 1),
-        0 0 28px rgba(255, 200, 60, 0.9),
-        0 0 48px rgba(255, 180, 40, 0.55);
       animation: pulse 1.6s ease-in-out infinite;
+      overflow: visible;
     }
     @keyframes pulse {
       0%, 100% { transform: scale(0.85); }
@@ -1154,6 +1147,13 @@
       btn.className = "hotspot";
       btn.dataset.idx = idx;
       btn.setAttribute("aria-label", z.name);
+      // SVG dot — forced colors via fill attributes, resistant to browser dark-mode inverters
+      btn.innerHTML = `<svg class="dot" viewBox="-28 -28 56 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="0" cy="0" r="22" fill="#ffd040" fill-opacity="0.35"/>
+        <circle cx="0" cy="0" r="16" fill="#ffe870" fill-opacity="0.6"/>
+        <circle cx="0" cy="0" r="11" fill="#ffffff" stroke="#fff4a8" stroke-width="2"/>
+        <circle cx="-3" cy="-3" r="4" fill="#ffffff" fill-opacity="0.9"/>
+      </svg>`;
       const lbl = document.createElement("span");
       lbl.className = "hotspot-label";
       lbl.textContent = z.name;

@@ -180,24 +180,14 @@
     }
 
     /* ---- Vacation Island (polished) ---- */
+    /* Backgrounds rendered via inline SVG inside .sky-svg to avoid browser
+       force-dark inverters (DuckDuckGo Android etc.) mangling CSS gradients. */
     .sky {
       position: absolute; inset: 0;
-      background: linear-gradient(to bottom, #ff9a5a 0%, #ffce7a 40%, #ffe9b0 70%, #f4d18c 100%);
-      transition: background 1.2s ease;
+      overflow: hidden;
     }
-    .sky.noon   { background: linear-gradient(to bottom, #74c6ff 0%, #b6e3ff 50%, #ffe9b0 100%); }
-    .sky.setting{ background: linear-gradient(to bottom, #ff7a3a 0%, #ff9a5a 40%, #ffc08a 80%, #6b3a6a 100%); }
-
-    .horizon {
-      position: absolute; left: 0; right: 0; bottom: 18%;
-      height: 20%;
-      background: linear-gradient(to bottom, rgba(60,30,20,0) 0%, #3a2a1f 30%, #2a1a10 100%);
-    }
-    .ocean {
-      position: absolute; left: 0; right: 0; bottom: 0;
-      height: 18%;
-      background: linear-gradient(to bottom, #2a3a7a 0%, #1a2a5a 100%);
-    }
+    .sky-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .sky-svg .layer { transition: opacity 1.2s ease; }
 
     .sun {
       position: absolute;
@@ -856,46 +846,84 @@
   }
 
   function waterLap() {
-    // Soft low filtered noise burst that ebbs — like a gentle lap against a hull
+    // A layered "gentle lap against a hull" sound:
+    //  1) low-pass noise swell that rises then ebbs (the body of the wave)
+    //  2) a mid band-pass shimmer (the frothy top of the wave hitting wood)
+    //  3) a small tuned "glub" — slow pitch-down sine for that underwater belly
+    //  4) a tiny droplet plink at the tail for sparkle
     if (!audioReady || !audioCtx) return;
     const t0 = audioCtx.currentTime;
-    const dur = 0.7;
-    const buf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * dur), audioCtx.sampleRate);
+    const dur = 1.1;
+
+    // ---- 1) Low noise swell (hull body)
+    const bufLen = Math.floor(audioCtx.sampleRate * dur);
+    const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
     const data = buf.getChannelData(0);
+    // brownian-ish noise (integrates white → low-freq heavy, sounds like water)
+    let last = 0;
     for (let i = 0; i < data.length; i++) {
-      // pink-ish noise (simple)
-      data[i] = (Math.random() * 2 - 1) * 0.6;
+      const w = Math.random() * 2 - 1;
+      last = (last + 0.04 * w) * 0.995;
+      data[i] = last * 6.0;
     }
     const src = audioCtx.createBufferSource();
     src.buffer = buf;
     const lp = audioCtx.createBiquadFilter();
     lp.type = "lowpass";
-    lp.frequency.setValueAtTime(500, t0);
-    lp.frequency.exponentialRampToValueAtTime(250, t0 + dur);
+    // filter opens as wave swells, closes as it recedes
+    lp.frequency.setValueAtTime(350, t0);
+    lp.frequency.linearRampToValueAtTime(900, t0 + 0.15);
+    lp.frequency.exponentialRampToValueAtTime(260, t0 + dur);
+    lp.Q.value = 0.7;
     const g = audioCtx.createGain();
     g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(0.42, t0 + 0.08);
-    g.gain.linearRampToValueAtTime(0.28, t0 + 0.25);
+    g.gain.linearRampToValueAtTime(0.38, t0 + 0.18);
+    g.gain.linearRampToValueAtTime(0.22, t0 + 0.5);
     g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
     src.connect(lp).connect(g).connect(audioCtx.destination);
     src.start(t0); src.stop(t0 + dur);
-    // Add a small splash element: higher band noise overlay
-    const buf2 = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.35), audioCtx.sampleRate);
+
+    // ---- 2) Mid shimmer (frothy top)
+    const buf2 = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * 0.55), audioCtx.sampleRate);
     const d2 = buf2.getChannelData(0);
     for (let i = 0; i < d2.length; i++) d2[i] = (Math.random() * 2 - 1) * 0.5;
     const src2 = audioCtx.createBufferSource();
     src2.buffer = buf2;
     const bp2 = audioCtx.createBiquadFilter();
     bp2.type = "bandpass";
-    bp2.frequency.setValueAtTime(2200, t0);
-    bp2.frequency.exponentialRampToValueAtTime(900, t0 + 0.35);
-    bp2.Q.value = 1.0;
+    bp2.frequency.setValueAtTime(1500, t0 + 0.05);
+    bp2.frequency.exponentialRampToValueAtTime(600, t0 + 0.55);
+    bp2.Q.value = 1.8;
     const g2 = audioCtx.createGain();
-    g2.gain.setValueAtTime(0, t0);
-    g2.gain.linearRampToValueAtTime(0.22, t0 + 0.03);
-    g2.gain.exponentialRampToValueAtTime(0.001, t0 + 0.35);
+    g2.gain.setValueAtTime(0, t0 + 0.05);
+    g2.gain.linearRampToValueAtTime(0.14, t0 + 0.12);
+    g2.gain.exponentialRampToValueAtTime(0.001, t0 + 0.55);
     src2.connect(bp2).connect(g2).connect(audioCtx.destination);
-    src2.start(t0); src2.stop(t0 + 0.4);
+    src2.start(t0 + 0.05); src2.stop(t0 + 0.6);
+
+    // ---- 3) Tuned "glub" (underwater belly — pitch falls)
+    const glub = audioCtx.createOscillator();
+    glub.type = "sine";
+    glub.frequency.setValueAtTime(260, t0 + 0.02);
+    glub.frequency.exponentialRampToValueAtTime(110, t0 + 0.45);
+    const glubG = audioCtx.createGain();
+    glubG.gain.setValueAtTime(0, t0 + 0.02);
+    glubG.gain.linearRampToValueAtTime(0.18, t0 + 0.07);
+    glubG.gain.exponentialRampToValueAtTime(0.001, t0 + 0.5);
+    glub.connect(glubG).connect(audioCtx.destination);
+    glub.start(t0 + 0.02); glub.stop(t0 + 0.55);
+
+    // ---- 4) Droplet plink tail
+    const plink = audioCtx.createOscillator();
+    plink.type = "sine";
+    plink.frequency.setValueAtTime(1800, t0 + 0.55);
+    plink.frequency.exponentialRampToValueAtTime(1200, t0 + 0.8);
+    const plinkG = audioCtx.createGain();
+    plinkG.gain.setValueAtTime(0, t0 + 0.55);
+    plinkG.gain.linearRampToValueAtTime(0.08, t0 + 0.58);
+    plinkG.gain.exponentialRampToValueAtTime(0.001, t0 + 0.85);
+    plink.connect(plinkG).connect(audioCtx.destination);
+    plink.start(t0 + 0.55); plink.stop(t0 + 0.9);
   }
 
   function honk() {
@@ -1260,13 +1288,73 @@
      ============================================================= */
   function renderVacation(stage) {
     stage.innerHTML = `
-      <div class="sky" id="vac-sky"></div>
-      <div class="horizon"></div>
-      <div class="ocean"></div>
-      <div class="sun" id="vac-sun" style="--sun-y: 0"></div>
+      <div class="sky" id="vac-sky">
+        <svg class="sky-svg" preserveAspectRatio="none" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="skyDawn" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"  stop-color="#ff9a5a"/>
+              <stop offset="40%" stop-color="#ffce7a"/>
+              <stop offset="70%" stop-color="#ffe9b0"/>
+              <stop offset="100%" stop-color="#f4d18c"/>
+            </linearGradient>
+            <linearGradient id="skyNoon" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"  stop-color="#74c6ff"/>
+              <stop offset="50%" stop-color="#b6e3ff"/>
+              <stop offset="100%" stop-color="#ffe9b0"/>
+            </linearGradient>
+            <linearGradient id="skySetting" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"  stop-color="#ff7a3a"/>
+              <stop offset="40%" stop-color="#ff9a5a"/>
+              <stop offset="80%" stop-color="#ffc08a"/>
+              <stop offset="100%" stop-color="#6b3a6a"/>
+            </linearGradient>
+            <linearGradient id="horizonGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"  stop-color="#3a2a1f" stop-opacity="0"/>
+              <stop offset="30%" stop-color="#3a2a1f"/>
+              <stop offset="100%" stop-color="#2a1a10"/>
+            </linearGradient>
+            <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"  stop-color="#2a3a7a"/>
+              <stop offset="100%" stop-color="#1a2a5a"/>
+            </linearGradient>
+          </defs>
+          <rect class="layer layer-dawn"    x="0" y="0" width="100" height="100" fill="url(#skyDawn)"    opacity="1"/>
+          <rect class="layer layer-noon"    x="0" y="0" width="100" height="100" fill="url(#skyNoon)"    opacity="0"/>
+          <rect class="layer layer-setting" x="0" y="0" width="100" height="100" fill="url(#skySetting)" opacity="0"/>
+          <rect x="0" y="62" width="100" height="20" fill="url(#horizonGrad)"/>
+          <rect x="0" y="82" width="100" height="18" fill="url(#oceanGrad)"/>
+        </svg>
+      </div>
+      <div class="sun" id="vac-sun" style="--sun-y: 0">
+        <svg viewBox="-70 -70 140 140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <radialGradient id="sunGradDawn" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0%"  stop-color="#ffd66b"/>
+              <stop offset="60%" stop-color="#ffa54a"/>
+              <stop offset="100%" stop-color="#ff7a3a"/>
+            </radialGradient>
+            <radialGradient id="sunGradNoon" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0%"  stop-color="#ffffff"/>
+              <stop offset="60%" stop-color="#fff6c0"/>
+              <stop offset="100%" stop-color="#ffd66b"/>
+            </radialGradient>
+            <radialGradient id="sunHalo" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0%"  stop-color="#ffb450" stop-opacity="0.55"/>
+              <stop offset="100%" stop-color="#ffb450" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle class="sun-halo" cx="0" cy="0" r="65" fill="url(#sunHalo)"/>
+          <circle class="sun-disc" cx="0" cy="0" r="42" fill="url(#sunGradDawn)"/>
+        </svg>
+        </svg>
+      </div>
     `;
     const sky = stage.querySelector("#vac-sky");
     const sun = stage.querySelector("#vac-sun");
+    const disc = sun.querySelector(".sun-disc");
+    const layerDawn    = sky.querySelector(".layer-dawn");
+    const layerNoon    = sky.querySelector(".layer-noon");
+    const layerSetting = sky.querySelector(".layer-setting");
     let isUp = false;
 
     sun.addEventListener("click", (e) => {
@@ -1274,15 +1362,19 @@
       if (!isUp) {
         sun.style.setProperty("--sun-y", "1");
         sun.classList.add("noon");
-        sky.classList.remove("setting");
-        sky.classList.add("noon");
+        layerDawn.setAttribute("opacity", "0");
+        layerSetting.setAttribute("opacity", "0");
+        layerNoon.setAttribute("opacity", "1");
+        disc.setAttribute("fill", "url(#sunGradNoon)");
         ascendingChime();
         isUp = true;
       } else {
         sun.style.setProperty("--sun-y", "0");
         sun.classList.remove("noon");
-        sky.classList.remove("noon");
-        sky.classList.add("setting");
+        layerDawn.setAttribute("opacity", "0");
+        layerNoon.setAttribute("opacity", "0");
+        layerSetting.setAttribute("opacity", "1");
+        disc.setAttribute("fill", "url(#sunGradDawn)");
         descendingChime();
         isUp = false;
       }

@@ -856,11 +856,28 @@
     try {
       const s = _getBeach().cloneNode(true);
       s.volume = 0.85;
+      _playingSamples.add(s);
+      s.addEventListener("ended", () => _playingSamples.delete(s));
       const p = s.play();
-      if (p && p.catch) p.catch(() => {});
+      if (p && p.catch) p.catch(() => _playingSamples.delete(s));
     } catch (err) {
       // fallback: do nothing silently
     }
+  }
+
+  function _stopAllZoneAudio() {
+    // Stop any HTMLAudio samples still playing
+    for (const s of _playingSamples) {
+      try { s.pause(); s.currentTime = 0; } catch (e) {}
+    }
+    _playingSamples.clear();
+    // Also silence any WebAudio by forcing a fast ramp on the master ctx if present.
+    try {
+      if (audioCtx && typeof audioCtx.suspend === "function") {
+        // Briefly suspend+resume to kill any scheduled oscillator tails.
+        audioCtx.suspend().then(() => audioCtx.resume()).catch(() => {});
+      }
+    } catch (e) {}
   }
 
   function honk() {
@@ -1143,14 +1160,24 @@
      ZONE ROUTING
      ============================================================= */
   const zoneScreen = document.getElementById("zone-screen");
-  const zoneStage = document.getElementById("zone-stage");
+  let zoneStage = document.getElementById("zone-stage");
   const backBtn = document.getElementById("back-btn");
 
   // When true, we're reacting to a hashchange/popstate — don't push another hash entry.
   let suppressHashWrite = false;
 
+  // Track any in-flight HTMLAudio samples so we can stop them on zone change.
+  const _playingSamples = new Set();
+
   function openZone(idx, opts = {}) {
     const z = ZONES[idx];
+    // Stop any audio left playing from a previous zone.
+    _stopAllZoneAudio();
+    // Replace the stage element with a clone to strip ALL event listeners
+    // previously attached to it (e.g. vacation zone's tap-anywhere handler).
+    const freshStage = zoneStage.cloneNode(false);
+    zoneStage.parentNode.replaceChild(freshStage, zoneStage);
+    zoneStage = freshStage;
     zoneStage.innerHTML = "";
     zoneStage.className = "";
     const renderers = {
@@ -1183,7 +1210,12 @@
   }
 
   function closeZone(opts = {}) {
+    _stopAllZoneAudio();
     zoneScreen.classList.remove("active");
+    // Also strip any listeners on the stage element when closing.
+    const freshStage = zoneStage.cloneNode(false);
+    zoneStage.parentNode.replaceChild(freshStage, zoneStage);
+    zoneStage = freshStage;
     zoneStage.innerHTML = "";
     zoneStage.className = "";
     if (!opts.fromHash && location.hash) {

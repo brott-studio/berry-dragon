@@ -15,10 +15,14 @@
     :root { color-scheme: light only; forced-color-adjust: none; }
     @media (prefers-color-scheme: dark) {
       :root { color-scheme: light only; }
+      html, body { background: #f4e8c8 !important; color: #000 !important; }
     }
     @media (forced-colors: active) {
       * { forced-color-adjust: none !important; }
+      html, body { background: #f4e8c8 !important; color: #000 !important; }
     }
+    /* iOS Smart Invert guard: mark all images/art as non-invertible */
+    img, svg { -webkit-filter: none !important; filter: none !important; }
 
     /* =========================================================
        RESET + BASE
@@ -28,9 +32,9 @@
       margin: 0; padding: 0;
       width: 100%; height: 100%;
       overflow: hidden;
-      background: #1b1410;
+      background: #f4e8c8 !important;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-      color: #fff;
+      color: #000 !important;
       touch-action: manipulation;
       user-select: none;
       -webkit-user-select: none;

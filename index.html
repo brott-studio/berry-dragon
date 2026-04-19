@@ -251,6 +251,14 @@
       pointer-events: auto;
       -webkit-user-drag: none;
       user-select: none;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+    /* iOS Safari: make all in-zone interactive elements use manipulation
+       so taps aren't eaten by double-tap-zoom / pan detection. */
+    .teddy, .chest, .cloud, .berry-bush, .dragon-body, .sun-ball,
+    .hotspot, .back-btn, .pz-layer > * {
+      touch-action: manipulation;
     }
     .pz-layer {
       position: absolute;

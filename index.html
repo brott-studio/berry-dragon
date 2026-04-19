@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Berry Dragon's Appetite</title>
+<style>
+  :root {
+    --bg: #1a1426;
+    --panel: #2a2038;
+    --ink: #f4ecd8;
+    --dim: #9a8fb0;
+    --accent: #ffb347;
+    --danger: #e85d5d;
+    --ok: #7ed957;
+    --berry: #c94b8c;
+    --gold: #ffd93d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px;
+    background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  h1 { margin: 0 0 8px; font-size: 22px; }
+  .sub { color: var(--dim); font-size: 13px; margin-bottom: 12px; }
+  .hud {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+    background: var(--panel); padding: 10px 14px; border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .stat { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+  .hunger-bar {
+    width: 180px; height: 14px; background: #111; border-radius: 7px;
+    overflow: hidden; border: 1px solid #444;
+  }
+  .hunger-fill {
+    height: 100%; background: linear-gradient(90deg, var(--ok), var(--accent), var(--danger));
+    transition: width 0.3s ease;
+  }
+  button {
+    background: var(--accent); color: #1a1426; border: none;
+    padding: 6px 12px; border-radius: 6px; font-weight: 600;
+    cursor: pointer; font-size: 13px;
+  }
+  button:disabled { background: #555; color: #888; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--dim); }
+
+  .map-wrap {
+    position: relative;
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  svg.edges {
+    position: absolute; inset: 12px; width: calc(100% - 24px); height: calc(100% - 24px);
+    pointer-events: none;
+  }
+  .map {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(3, 110px);
+    gap: 12px;
+    position: relative;
+  }
+  .zone {
+    background: #3a2f4a;
+    border: 2px solid #4a3f5a;
+    border-radius: 8px;
+    padding: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; cursor: default;
+    transition: transform 0.15s, border-color 0.15s, background 0.15s;
+    position: relative;
+    user-select: none;
+  }
+  .zone .emoji { font-size: 28px; line-height: 1; }
+  .zone .name { font-size: 11px; margin-top: 4px; color: var(--ink); font-weight: 600; }
+  .zone.reachable {
+    border-color: var(--accent);
+    background: #4a3a28;
+    cursor: pointer;
+  }
+  .zone.reachable:hover { transform: scale(1.04); }
+  .zone.current { border-color: var(--ok); box-shadow: 0 0 0 2px var(--ok); }
+  .zone.current::after {
+    content: "🧑"; position: absolute; top: -10px; right: -10px;
+    font-size: 22px; background: var(--panel); border-radius: 50%;
+    padding: 2px; border: 2px solid var(--ok);
+  }
+  .zone.key-here::before {
+    content: "🗝️"; position: absolute; top: -8px; left: -8px;
+    font-size: 18px; background: var(--panel); border-radius: 50%;
+    padding: 2px;
+  }
+
+  .log {
+    background: var(--panel); border-radius: 8px; padding: 10px 14px;
+    font-size: 13px; line-height: 1.5;
+  }
+  .log .entry { color: var(--dim); }
+  .log .entry.new { color: var(--ink); }
+
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: none; align-items: center; justify-content: center; z-index: 10;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: var(--panel); padding: 24px 32px; border-radius: 12px;
+    text-align: center; max-width: 360px;
+  }
+  .modal h2 { margin: 0 0 8px; }
+  .modal.win h2 { color: var(--ok); }
+  .modal.lose h2 { color: var(--danger); }
+</style>
+</head>
+<body>
+
+<h1>🐉 Berry Dragon's Appetite</h1>
+<div class="sub">Grab the Chalice Key from the Golden Maze and reach Treasure Mountain before the Dragon wakes up.</div>
+
+<div class="hud">
+  <div class="stat">
+    <span>😋 Hunger</span>
+    <div class="hunger-bar"><div class="hunger-fill" id="hungerFill"></div></div>
+    <span id="hungerText">0 / 10</span>
+  </div>
+  <div class="stat">🫐 Berries: <strong id="berriesText">0</strong></div>
+  <div class="stat">🗝️ Key: <strong id="keyText">No</strong></div>
+  <div class="stat">🚶 Turn: <strong id="turnText">1</strong></div>
+  <button id="feedBtn">Feed Dragon 🫐→😋 (-1 hunger)</button>
+  <button id="restartBtn" class="ghost">Restart</button>
+</div>
+
+<div class="map-wrap">
+  <svg class="edges" id="edges"></svg>
+  <div class="map" id="map"></div>
+</div>
+
+<div class="log" id="log"></div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal" id="modal">
+    <h2 id="modalTitle"></h2>
+    <p id="modalBody"></p>
+    <button onclick="init()">Play Again</button>
+  </div>
+</div>
+
+<script>
+// Zone layout on a 4x3 grid (col, row). Grid is 0-indexed.
+const ZONES = {
+  vacation:  { name: "Vacation Island",     emoji: "🏝️", col: 0, row: 0, type: "start" },
+  sea:       { name: "Sea of Wave",         emoji: "🌊", col: 1, row: 0, type: "sea" },
+  forest:    { name: "Fantastic Forest",    emoji: "🌲", col: 2, row: 0, type: "forest" },
+  fog:       { name: "Fog of Misdirection", emoji: "🌫️", col: 3, row: 0, type: "fog" },
+  berries:   { name: "Dragonberries",       emoji: "🫐", col: 0, row: 1, type: "berries" },
+  desert:    { name: "Deserted Desert",     emoji: "🏜️", col: 1, row: 1, type: "desert" },
+  quicksand: { name: "Quicksand Pool",      emoji: "🕳️", col: 2, row: 1, type: "quicksand" },
+  maze:      { name: "Golden Maze of Gold", emoji: "🌀", col: 3, row: 1, type: "maze" },
+  dragon:    { name: "Berry Dragon",        emoji: "🐉", col: 1, row: 2, type: "dragon" },
+  mountain:  { name: "Treasure Mountain",   emoji: "⛰️", col: 3, row: 2, type: "goal" },
+};
+
+// Adjacency (undirected). Tuned so shortest win path Vacation→Maze→Mountain ≈ 6 moves.
+const EDGES = [
+  ["vacation","sea"], ["sea","forest"], ["forest","fog"],
+  ["vacation","berries"],
+  ["sea","desert"], ["forest","quicksand"], ["fog","maze"],
+  ["berries","desert"], ["desert","quicksand"], ["quicksand","maze"],
+  ["desert","dragon"], ["maze","mountain"], ["dragon","mountain"],
+];
+
+const NEIGHBORS = {};
+for (const k of Object.keys(ZONES)) NEIGHBORS[k] = [];
+for (const [a,b] of EDGES) { NEIGHBORS[a].push(b); NEIGHBORS[b].push(a); }
+
+let state;
+
+function init() {
+  state = {
+    pos: "vacation",
+    hunger: 0,
+    berries: 0,
+    hasKey: false,
+    turn: 1,
+    log: [],
+    over: false,
+    visited: new Set(["vacation"]),
+  };
+  addLog("You wake on Vacation Island. The Dragon is restless.");
+  render();
+  hideModal();
+}
+
+function addLog(msg) {
+  state.log.push(msg);
+  if (state.log.length > 5) state.log.shift();
+}
+
+function move(target) {
+  if (state.over) return;
+  if (!NEIGHBORS[state.pos].includes(target)) return;
+
+  state.pos = target;
+  state.hunger += 1;
+  state.turn += 1;
+  const z = ZONES[target];
+  addLog(`→ Moved to ${z.name}. Hunger +1.`);
+
+  // Zone effects
+  switch (z.type) {
+    case "berries":
+      state.berries += 2;
+      addLog("🫐 Gathered 2 Dragonberries.");
+      break;
+    case "forest":
+      // "draws Forest card" — random minor event
+      const roll = Math.random();
+      if (roll < 0.4) { state.berries += 1; addLog("🌲 Forest card: found 1 extra berry."); }
+      else if (roll < 0.7) { addLog("🌲 Forest card: peaceful clearing. Nothing happens."); }
+      else { state.hunger = Math.max(0, state.hunger - 1); addLog("🌲 Forest card: cool breeze, Dragon naps. Hunger -1."); }
+      break;
+    case "desert":
+      state.hunger += 1;
+      addLog("🏜️ Desert thirst! Extra hunger +1.");
+      break;
+    case "quicksand":
+      state.hunger += 1;
+      addLog("🕳️ Quicksand slows you. Hunger +1.");
+      break;
+    case "fog":
+      // Randomize: teleport to a random neighbor of fog (not fog itself)
+      const opts = NEIGHBORS["fog"].filter(x => x !== state.pos);
+      if (opts.length > 0) {
+        const dest = opts[Math.floor(Math.random() * opts.length)];
+        addLog(`🌫️ Fog scrambles you toward ${ZONES[dest].name}!`);
+        state.pos = dest;
+        // Don't re-trigger effects on the teleported-to zone to avoid chains
+      }
+      break;
+    case "maze":
+      if (!state.hasKey) {
+        state.hasKey = true;
+        addLog("🗝️ You solve the maze and claim the Chalice Key!");
+      } else {
+        addLog("🌀 The maze is empty now.");
+      }
+      break;
+    case "dragon":
+      state.hunger += 2;
+      addLog("🐉 You crept past the Dragon — it stirs! Hunger +2.");
+      break;
+    case "goal":
+      if (state.hasKey) {
+        endGame(true);
+        return;
+      } else {
+        addLog("⛰️ Treasure Mountain locked. You need the Chalice Key!");
+      }
+      break;
+  }
+
+  state.visited.add(state.pos);
+  checkLose();
+  render();
+}
+
+function feed() {
+  if (state.over) return;
+  if (state.berries <= 0) return;
+  if (state.hunger <= 0) { addLog("Dragon isn't hungry right now."); render(); return; }
+  state.berries -= 1;
+  state.hunger -= 1;
+  addLog("🫐→🐉 Fed the Dragon a berry. Hunger -1.");
+  render();
+}
+
+function checkLose() {
+  if (state.hunger >= 10) {
+    state.hunger = 10;
+    endGame(false);
+  }
+}
+
+function endGame(win) {
+  state.over = true;
+  render();
+  const modal = document.getElementById("modal");
+  modal.className = "modal " + (win ? "win" : "lose");
+  document.getElementById("modalTitle").textContent = win ? "🏆 You Win!" : "🐉 Dragon Awakens!";
+  document.getElementById("modalBody").textContent = win
+    ? `You delivered the Chalice Key to Treasure Mountain in ${state.turn} turns.`
+    : `The Dragon's hunger overwhelmed you on turn ${state.turn}. The island is devoured.`;
+  document.getElementById("modalBg").classList.add("show");
+}
+
+function hideModal() {
+  document.getElementById("modalBg").classList.remove("show");
+}
+
+function render() {
+  // HUD
+  const pct = (state.hunger / 10) * 100;
+  document.getElementById("hungerFill").style.width = pct + "%";
+  document.getElementById("hungerText").textContent = `${state.hunger} / 10`;
+  document.getElementById("berriesText").textContent = state.berries;
+  document.getElementById("keyText").textContent = state.hasKey ? "Yes 🗝️" : "No";
+  document.getElementById("turnText").textContent = state.turn;
+  document.getElementById("feedBtn").disabled = state.over || state.berries <= 0 || state.hunger <= 0;
+
+  // Map
+  const map = document.getElementById("map");
+  map.innerHTML = "";
+  const reachable = state.over ? [] : NEIGHBORS[state.pos];
+  for (const [id, z] of Object.entries(ZONES)) {
+    const el = document.createElement("div");
+    el.className = "zone";
+    el.style.gridColumn = (z.col + 1);
+    el.style.gridRow = (z.row + 1);
+    if (id === state.pos) el.classList.add("current");
+    if (reachable.includes(id)) el.classList.add("reachable");
+    if (id === "maze" && !state.hasKey) el.classList.add("key-here");
+    el.innerHTML = `<div class="emoji">${z.emoji}</div><div class="name">${z.name}</div>`;
+    if (reachable.includes(id)) el.onclick = () => move(id);
+    map.appendChild(el);
+  }
+
+  // Edges (SVG lines). Compute positions from grid cells.
+  const edgesSvg = document.getElementById("edges");
+  edgesSvg.innerHTML = "";
+  // We'll let the browser lay things out then draw edges on next frame.
+  requestAnimationFrame(() => {
+    const wrap = document.querySelector(".map-wrap");
+    const wrapRect = wrap.getBoundingClientRect();
+    edgesSvg.setAttribute("viewBox", `0 0 ${wrapRect.width} ${wrapRect.height}`);
+    edgesSvg.setAttribute("width", wrapRect.width);
+    edgesSvg.setAttribute("height", wrapRect.height);
+    edgesSvg.style.left = "0";
+    edgesSvg.style.top = "0";
+    edgesSvg.style.width = wrapRect.width + "px";
+    edgesSvg.style.height = wrapRect.height + "px";
+    edgesSvg.style.inset = "0";
+
+    const zoneEls = {};
+    map.querySelectorAll(".zone").forEach((el, i) => {
+      const name = el.querySelector(".name").textContent;
+      for (const [k, v] of Object.entries(ZONES)) {
+        if (v.name === name) zoneEls[k] = el;
+      }
+    });
+    for (const [a, b] of EDGES) {
+      const ra = zoneEls[a].getBoundingClientRect();
+      const rb = zoneEls[b].getBoundingClientRect();
+      const ax = ra.left + ra.width / 2 - wrapRect.left;
+      const ay = ra.top + ra.height / 2 - wrapRect.top;
+      const bx = rb.left + rb.width / 2 - wrapRect.left;
+      const by = rb.top + rb.height / 2 - wrapRect.top;
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", ax); line.setAttribute("y1", ay);
+      line.setAttribute("x2", bx); line.setAttribute("y2", by);
+      line.setAttribute("stroke", "#5a4a70");
+      line.setAttribute("stroke-width", "2");
+      line.setAttribute("stroke-dasharray", "4 4");
+      edgesSvg.appendChild(line);
+    }
+  });
+
+  // Log
+  const logEl = document.getElementById("log");
+  logEl.innerHTML = state.log.map((m, i) =>
+    `<div class="entry${i === state.log.length - 1 ? ' new' : ''}">• ${m}</div>`
+  ).join("");
+}
+
+document.getElementById("feedBtn").onclick = feed;
+document.getElementById("restartBtn").onclick = init;
+window.addEventListener("resize", render);
+
+init();
+</script>
+
+</body>
+</html>

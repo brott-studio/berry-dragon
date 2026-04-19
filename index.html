@@ -330,6 +330,19 @@
     /* =========================================================
        v0.4 NEW-ZONE STYLES
        ========================================================= */
+    /* House-boat ripple */
+    .ripple {
+      position: absolute;
+      border: 3px solid rgba(80, 160, 220, 0.75);
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      animation: ripple-expand 1200ms ease-out forwards;
+    }
+    @keyframes ripple-expand {
+      0%   { width: 10px; height: 10px; opacity: 0.9; border-width: 3px; }
+      100% { width: 220px; height: 220px; opacity: 0; border-width: 1px; }
+    }
     /* House-boat bobbing */
     @keyframes boat-bob {
       0%,100% { transform: translate(0,0) rotate(0); }
@@ -674,6 +687,32 @@
     // Bigger major-7 flourish
     [523.25, 659.25, 783.99, 987.77, 1318.51].forEach((f, i) =>
       tone(f, 0.8, "triangle", 0.1, i * 0.08));
+  }
+
+  function waterLap() {
+    // Soft low filtered noise burst that ebbs — like a gentle lap against a hull
+    if (!audioReady || !audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const dur = 0.7;
+    const buf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * dur), audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      // pink-ish noise (simple)
+      data[i] = (Math.random() * 2 - 1) * 0.6;
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(500, t0);
+    lp.frequency.exponentialRampToValueAtTime(250, t0 + dur);
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(0.22, t0 + 0.08);
+    g.gain.linearRampToValueAtTime(0.12, t0 + 0.25);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    src.connect(lp).connect(g).connect(audioCtx.destination);
+    src.start(t0); src.stop(t0 + dur);
   }
 
   function honk() {
@@ -1127,11 +1166,22 @@
 
   /* ---- House-boat ---- */
   function renderHouseboat(stage) {
-    const { img } = mkStage(stage, "house-boat");
-    img.addEventListener("click", () => {
+    const { wrap, img } = mkStage(stage, "house-boat");
+    img.addEventListener("click", (e) => {
+      const { x, y } = relTapXY(img, e);
       img.classList.remove("bobbing"); void img.offsetWidth;
       img.classList.add("bobbing");
-      honk();
+      waterLap();
+      // Two concentric ripples staggered for a nicer feel
+      for (let i = 0; i < 2; i++) {
+        const r = document.createElement("div");
+        r.className = "ripple";
+        r.style.left = (img.offsetLeft + x) + "px";
+        r.style.top  = (img.offsetTop + y) + "px";
+        r.style.animationDelay = (i * 180) + "ms";
+        wrap.appendChild(r);
+        setTimeout(() => r.remove(), 1500 + i * 180);
+      }
     });
   }
 

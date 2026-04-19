@@ -81,11 +81,12 @@
     /* Tiny pulsing dot inside each hotspot */
     .hotspot::before {
       content: "";
-      width: 14px; height: 14px;
+      width: 18px; height: 18px;
       border-radius: 50%;
-      background: rgba(255, 220, 100, 0.85);
-      box-shadow: 0 0 12px rgba(255, 220, 100, 0.9),
-                  0 0 24px rgba(255, 180, 60, 0.5);
+      background: rgba(255, 220, 100, 0.95);
+      box-shadow: 0 0 14px rgba(255, 220, 100, 0.95),
+                  0 0 28px rgba(255, 180, 60, 0.6),
+                  inset 0 0 6px rgba(255, 255, 255, 0.6);
       animation: pulse 1.6s ease-in-out infinite;
     }
     @keyframes pulse {
@@ -121,7 +122,11 @@
       align-items: center; justify-content: center;
       overflow: hidden;
     }
-    #zone-screen.active { display: flex; }
+    #zone-screen.active { display: flex; animation: zone-fade-in 280ms ease; }
+    @keyframes zone-fade-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
 
     #zone-stage {
       position: relative;
@@ -196,24 +201,8 @@
     }
     .sun:active { transform: translate(-50%, 0) scale(0.94); }
 
-    /* ---- Stub zone screen ---- */
-    .stub {
-      position: absolute; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .stub-emoji {
-      font-size: clamp(140px, 38vmin, 340px);
-      cursor: pointer;
-      filter: drop-shadow(0 8px 20px rgba(0,0,0,0.5));
-      transition: transform 0.08s ease;
-    }
-    .stub-emoji.bounce { animation: bounce 0.5s ease; }
-    @keyframes bounce {
-      0%   { transform: scale(1) translateY(0); }
-      30%  { transform: scale(1.25) translateY(-30px); }
-      60%  { transform: scale(0.92) translateY(0); }
-      100% { transform: scale(1) translateY(0); }
-    }
+    /* ---- Legacy stub (unused; kept briefly for safety) ---- */
+    .stub { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 
     /* Paper-texture cream base for polished zones — matches map vibe */
     .paper-bg {
@@ -296,41 +285,8 @@
       100% { transform: translate(calc(-50% + var(--dx,0px)), calc(-50% + var(--dy,0px))) scale(1.1); opacity: 0; }
     }
 
-    /* Dragon burp puff */
-    .puff {
-      position: absolute;
-      font-size: 56px;
-      pointer-events: none;
-      will-change: transform, opacity;
-    }
-    @keyframes puff-rise {
-      0%   { transform: translate(-50%, 0) scale(0.4); opacity: 0; }
-      25%  { transform: translate(-50%, -20px) scale(1.1); opacity: 1; }
-      100% { transform: translate(-50%, -90px) scale(1.6); opacity: 0; }
-    }
-
-    /* Dragon smile overlay */
-    .smile-overlay {
-      position: absolute;
-      width: 40%;
-      left: 50%; top: 50%;
-      transform: translate(-50%, -50%);
-      opacity: 0;
-      transition: opacity 0.8s ease;
-      pointer-events: none;
-    }
-    .smile-overlay.show { opacity: 1; }
-
-    /* Per-stub background colors */
-    .bg-sea      { background: linear-gradient(to bottom, #88cfff, #1d4e8a); }
-    .bg-forest   { background: linear-gradient(to bottom, #a9e4a1, #2e6b3a); }
-    .bg-desert   { background: linear-gradient(to bottom, #ffd89b, #c07530); }
-    .bg-maze     { background: linear-gradient(135deg, #f7d560, #b88924); }
-    .bg-fog      { background: linear-gradient(to bottom, #d8e6ff, #6b7a95); }
-    .bg-berries  { background: linear-gradient(to bottom, #cda0e6, #5a2a7a); }
-    .bg-dragon   { background: linear-gradient(to bottom, #ffb27a, #7a2a4a); }
-    .bg-sand     { background: linear-gradient(to bottom, #ffe7a0, #b87038); }
-    .bg-mountain { background: linear-gradient(to bottom, #c8d6e0, #4a6a82); }
+    /* ---- Per-stub background colors (legacy, kept for safety) ---- */
+    .bg-fallback { background: linear-gradient(to bottom, #cda0e6, #5a2a7a); }
 
     /* =========================================================
        LOADING + HINT
@@ -351,8 +307,213 @@
     }
     #hint.hidden { opacity: 0; transition: opacity 0.6s ease; }
 
-    /* Prevent double-tap zoom jitter on iOS */
-    a, button, .hotspot, .sun, .stub-emoji { touch-action: manipulation; }
+    /* =========================================================
+       v0.4 NEW-ZONE STYLES
+       ========================================================= */
+    /* House-boat bobbing */
+    @keyframes boat-bob {
+      0%,100% { transform: translate(0,0) rotate(0); }
+      25% { transform: translate(0,-10px) rotate(-2deg); }
+      50% { transform: translate(0,4px) rotate(1deg); }
+      75% { transform: translate(0,-6px) rotate(2deg); }
+    }
+    .bobbing { animation: boat-bob 0.9s ease-in-out; }
+
+    /* Butterflies */
+    .butterfly {
+      position: absolute;
+      width: 40px; height: 32px;
+      pointer-events: none;
+      will-change: transform, opacity;
+    }
+    .butterfly svg { width:100%; height:100%; }
+    .butterfly .wing { transform-origin: 20px 16px; animation: flap 160ms ease-in-out infinite alternate; }
+    .butterfly .wing.r { transform-origin: 20px 16px; }
+    @keyframes flap {
+      0% { transform: scaleX(1); }
+      100% { transform: scaleX(0.35); }
+    }
+    @keyframes butterfly-fly {
+      0%   { transform: translate(0, 0) rotate(-10deg); opacity: 0; }
+      15%  { opacity: 1; }
+      100% { transform: translate(var(--fx,0), var(--fy,-360px)) rotate(var(--fr,10deg)); opacity: 0; }
+    }
+
+    /* Forest peekers */
+    .peeker {
+      position: absolute;
+      font-size: 84px;
+      pointer-events: none;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+      will-change: transform, opacity;
+    }
+    @keyframes peek-in {
+      0%   { transform: translate(-50%, 40px) scale(0.4); opacity: 0; }
+      30%  { transform: translate(-50%, -6px) scale(1.1); opacity: 1; }
+      70%  { transform: translate(-50%, -6px) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, 40px) scale(0.5); opacity: 0; }
+    }
+
+    /* Desert treasure pops */
+    .treasure-pop {
+      position: absolute;
+      font-size: 64px;
+      pointer-events: none;
+      filter: drop-shadow(0 4px 8px rgba(80,50,10,0.5));
+      will-change: transform, opacity;
+    }
+    @keyframes pop-float {
+      0%   { transform: translate(-50%, 0) scale(0.4); opacity: 0; }
+      20%  { transform: translate(-50%, -20px) scale(1.2); opacity: 1; }
+      100% { transform: translate(-50%, -140px) scale(0.9); opacity: 0; }
+    }
+
+    /* Fog clouds */
+    .fog-cloud {
+      position: absolute;
+      width: 180px; height: 120px;
+      cursor: pointer;
+      pointer-events: auto;
+      will-change: transform, opacity;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.2));
+    }
+    .fog-cloud svg { width:100%; height:100%; }
+    .fog-cloud.drift { animation: fog-drift var(--fog-dur, 22s) linear infinite; }
+    @keyframes fog-drift {
+      0%   { transform: translate(0,0); }
+      50%  { transform: translate(var(--fog-dx,40px), var(--fog-dy,-20px)); }
+      100% { transform: translate(0,0); }
+    }
+    .fog-cloud.puff { animation: fog-puff 650ms ease-out forwards; pointer-events: none; }
+    @keyframes fog-puff {
+      0%   { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(2); }
+    }
+
+    /* Footprints */
+    .footprint {
+      position: absolute;
+      font-size: 44px;
+      pointer-events: none;
+      transform: translate(-50%, -50%) rotate(var(--fp-rot, 0deg));
+      transition: opacity 4s ease-out;
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,0.4));
+    }
+    .footprint.fading { opacity: 0; }
+
+    /* Berries */
+    .berry-counter {
+      position: absolute;
+      top: max(16px, env(safe-area-inset-top));
+      right: max(16px, env(safe-area-inset-right));
+      padding: 10px 18px;
+      border-radius: 22px;
+      background: rgba(90, 30, 90, 0.85);
+      color: #fff;
+      font-size: 22px;
+      font-weight: 800;
+      z-index: 10;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+    }
+    .basket {
+      position: absolute;
+      left: 50%; bottom: 18px;
+      transform: translateX(-50%);
+      font-size: 90px;
+      pointer-events: none;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+      z-index: 5;
+    }
+    .berry {
+      position: absolute;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      pointer-events: none;
+      will-change: transform, opacity;
+      box-shadow: inset -4px -4px 8px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.3);
+    }
+    @keyframes berry-tumble {
+      0%   { transform: translate(0,0) scale(0.6); opacity: 0; }
+      15%  { transform: translate(calc(var(--bx,0px) * 0.3), -30px) scale(1.1); opacity: 1; }
+      100% { transform: translate(var(--bx,0px), var(--by,400px)) scale(0.9) rotate(var(--br,360deg)); opacity: 1; }
+    }
+    @keyframes berry-fade { to { opacity: 0; } }
+
+    /* Dragon rainbow */
+    .rainbow {
+      position: absolute;
+      width: 240px; height: 120px;
+      pointer-events: none;
+      will-change: transform, opacity;
+    }
+    @keyframes rainbow-spit {
+      0%   { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+      25%  { transform: translate(-50%, -80%) scale(1.1); opacity: 1; }
+      100% { transform: translate(-50%, -140%) scale(1.4); opacity: 0; }
+    }
+    .flying-berry {
+      position: absolute;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      pointer-events: none;
+      will-change: transform, opacity;
+      box-shadow: inset -5px -5px 10px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.4);
+    }
+    .dragon-chomp { animation: dragon-chomp 250ms ease-in-out; }
+    @keyframes dragon-chomp {
+      0%,100% { transform: scale(1); }
+      50%     { transform: scale(1.06); }
+    }
+
+    /* Quicksand teddy */
+    .teddy {
+      position: absolute;
+      left: 50%;
+      top: 30%;
+      transform: translate(-50%, var(--sink, 0px));
+      font-size: 110px;
+      cursor: pointer;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.45));
+      transition: transform 0.2s cubic-bezier(.2,.9,.3,1);
+      z-index: 5;
+      pointer-events: auto;
+    }
+    .teddy.rescued { animation: rescue-bounce 900ms ease-out; }
+    @keyframes rescue-bounce {
+      0%,100% { transform: translate(-50%, var(--sink,0px)); }
+      50%     { transform: translate(-50%, calc(var(--sink,0px) - 60px)) scale(1.2) rotate(10deg); }
+    }
+
+    /* Confetti */
+    .confetti {
+      position: absolute;
+      width: 12px; height: 16px;
+      pointer-events: none;
+      will-change: transform, opacity;
+    }
+    @keyframes confetti-fly {
+      0%   { transform: translate(0,0) rotate(0); opacity: 1; }
+      100% { transform: translate(var(--cx,0px), var(--cy,-400px)) rotate(var(--cr,720deg)); opacity: 0; }
+    }
+
+    /* Treasure chest */
+    .chest {
+      position: absolute;
+      left: 50%; top: 38%;
+      transform: translate(-50%, -50%);
+      font-size: 110px;
+      cursor: pointer;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.45));
+      z-index: 5;
+      pointer-events: auto;
+    }
+    .chest.wobble { animation: chest-wobble 400ms ease-in-out; }
+    @keyframes chest-wobble {
+      0%,100% { transform: translate(-50%,-50%) rotate(0); }
+      25% { transform: translate(-50%,-50%) rotate(-8deg) scale(1.1); }
+      75% { transform: translate(-50%,-50%) rotate(8deg) scale(1.1); }
+    }
+
   </style>
 </head>
 <body>
@@ -385,17 +546,19 @@
   window.DEV = false; // flip to true to visualize hotspots
 
   const ZONES = [
-    // name,                x,     y,     emoji,   bgClass,      kind
-    { name: "Vacation Island",     x: 0.05, y: 0.33, emoji: "🏝️", bg: null,          kind: "vacation" },
-    { name: "Sea of Wave",         x: 0.16, y: 0.10, emoji: "🌊", bg: "bg-sea",      kind: "sea" },
-    { name: "Fantastic Forest",    x: 0.27, y: 0.38, emoji: "🌳", bg: "bg-forest",   kind: "stub" },
-    { name: "Golden Maze of Gold", x: 0.49, y: 0.27, emoji: "🟡", bg: "bg-maze",     kind: "maze" },
-    { name: "Deserted Desert",     x: 0.39, y: 0.55, emoji: "🏜️", bg: "bg-desert",   kind: "stub" },
-    { name: "Fog of Misdirection", x: 0.85, y: 0.32, emoji: "☁️", bg: "bg-fog",      kind: "stub" },
-    { name: "Dragonberries",       x: 0.41, y: 0.73, emoji: "🍇", bg: "bg-berries",  kind: "stub" },
-    { name: "Berry Dragon",        x: 0.57, y: 0.78, emoji: "🐉", bg: "bg-dragon",   kind: "dragon" },
-    { name: "Quicksand Pool",      x: 0.66, y: 0.93, emoji: "🌀", bg: "bg-sand",     kind: "stub" },
-    { name: "Treasure Mountain",   x: 0.85, y: 0.70, emoji: "🏔️", bg: "bg-mountain", kind: "stub" },
+    { id: 'house-boat',        name: 'House-boat',         x: 0.12, y: 0.05, kind: 'houseboat' },
+    { id: 'sea-of-wave',       name: 'Sea of Wave',        x: 0.22, y: 0.12, kind: 'sea' },
+    { id: 'vacation-island',   name: 'Vacation Island',    x: 0.03, y: 0.34, kind: 'vacation' },
+    { id: 'treeless-prairie',  name: 'Treeless Prairie',   x: 0.03, y: 0.60, kind: 'prairie' },
+    { id: 'fantastic-forest',  name: 'Fantastic Forest',   x: 0.23, y: 0.40, kind: 'forest' },
+    { id: 'golden-maze',       name: 'Golden Maze of Gold',x: 0.49, y: 0.28, kind: 'maze' },
+    { id: 'deserted-desert',   name: 'Deserted Desert',    x: 0.37, y: 0.53, kind: 'desert' },
+    { id: 'fog',               name: 'Fog of Misdirection',x: 0.82, y: 0.27, kind: 'fog' },
+    { id: 'dirty-path',        name: 'Dirty Path of Dirt', x: 0.62, y: 0.52, kind: 'path' },
+    { id: 'dragonberries',     name: 'Dragonberries',      x: 0.33, y: 0.65, kind: 'berries' },
+    { id: 'berry-dragon',      name: 'Berry Dragon',       x: 0.53, y: 0.75, kind: 'dragon' },
+    { id: 'quicksand',         name: 'Quicksand Pool',     x: 0.60, y: 0.88, kind: 'quicksand' },
+    { id: 'treasure-mountain', name: 'Treasure Mountain',  x: 0.85, y: 0.65, kind: 'treasure' },
   ];
 
   /* =============================================================
@@ -478,33 +641,102 @@
     tone(660, 0.08, "sine", 0.06, 0.05);
   }
 
-  // Burp: short descending sawtooth wobble
   function burp() {
-    if (!audioReady || !audioCtx) return;
-    const t0 = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(220, t0);
-    osc.frequency.exponentialRampToValueAtTime(90, t0 + 0.28);
-    const lp = audioCtx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.setValueAtTime(800, t0);
-    g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(0.25, t0 + 0.03);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
-    osc.connect(lp).connect(g).connect(audioCtx.destination);
-    osc.start(t0);
-    osc.stop(t0 + 0.35);
-    // Giggle tail
-    tone(520, 0.08, "triangle", 0.08, 0.3);
-    tone(640, 0.08, "triangle", 0.08, 0.38);
+    /* retired in v0.4 */
   }
 
   function happyChord() {
     // C major triad + octave
     chord([523.25, 659.25, 783.99, 1046.50], 0.7, "triangle", 0.09);
   }
+
+  function triumphant() {
+    // Bigger major-7 flourish
+    [523.25, 659.25, 783.99, 987.77, 1318.51].forEach((f, i) =>
+      tone(f, 0.8, "triangle", 0.1, i * 0.08));
+  }
+
+  function honk() {
+    // Brass-ish short low tone
+    if (!audioReady || !audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(170, t0);
+    osc.frequency.exponentialRampToValueAtTime(140, t0 + 0.25);
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = "lowpass"; lp.frequency.setValueAtTime(900, t0);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(0.18, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3);
+    osc.connect(lp).connect(g).connect(audioCtx.destination);
+    osc.start(t0); osc.stop(t0 + 0.35);
+    tone(280, 0.2, "sawtooth", 0.06, 0.0);
+  }
+
+  function flutter() {
+    if (!audioReady || !audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const dur = 0.35;
+    const size = Math.floor(audioCtx.sampleRate * dur);
+    const buf = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < size; i++) {
+      const env = Math.exp(-i / (size * 0.35));
+      d[i] = (Math.random() * 2 - 1) * env * 0.6;
+    }
+    const src = audioCtx.createBufferSource(); src.buffer = buf;
+    const bp = audioCtx.createBiquadFilter();
+    bp.type = "bandpass"; bp.frequency.value = 2400; bp.Q.value = 3;
+    const g = audioCtx.createGain(); g.gain.value = 0.3;
+    src.connect(bp).connect(g).connect(audioCtx.destination);
+    src.start(t0);
+    tone(1800, 0.1, "sine", 0.05, 0);
+    tone(2200, 0.1, "sine", 0.05, 0.08);
+  }
+
+  function whoosh() {
+    if (!audioReady || !audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const dur = 0.55;
+    const size = Math.floor(audioCtx.sampleRate * dur);
+    const buf = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < size; i++) {
+      const env = Math.exp(-i / (size * 0.45));
+      d[i] = (Math.random() * 2 - 1) * env * 0.6;
+    }
+    const src = audioCtx.createBufferSource(); src.buffer = buf;
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(2000, t0);
+    lp.frequency.exponentialRampToValueAtTime(300, t0 + dur);
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.3, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(lp).connect(g).connect(audioCtx.destination);
+    src.start(t0);
+  }
+
+  function step() { tone(110, 0.12, "sine", 0.18); tone(80, 0.1, "sine", 0.12, 0.02); }
+  function pluck() { tone(1100 + Math.random()*400, 0.18, "triangle", 0.18); tone(1800, 0.08, "sine", 0.08, 0.02); }
+  function happyPop() { tone(660, 0.1, "triangle", 0.15); tone(990, 0.1, "sine", 0.1, 0.05); }
+  function risingWhoosh() {
+    if (!audioReady || !audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(300, t0);
+    osc.frequency.exponentialRampToValueAtTime(1200, t0 + 0.4);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(0.12, t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(t0); osc.stop(t0 + 0.5);
+  }
+  function tug() { tone(200, 0.1, "sine", 0.16); tone(260, 0.08, "triangle", 0.1, 0.04); }
 
   /* =============================================================
      HOTSPOT LAYOUT
@@ -573,17 +805,23 @@
     const z = ZONES[idx];
     zoneStage.innerHTML = "";
     zoneStage.className = "";
-    if (z.kind === "vacation") {
-      renderVacation(zoneStage);
-    } else if (z.kind === "sea") {
-      renderSeaOfWave(zoneStage);
-    } else if (z.kind === "maze") {
-      renderGoldenMaze(zoneStage);
-    } else if (z.kind === "dragon") {
-      renderBerryDragon(zoneStage);
-    } else {
-      renderStub(zoneStage, z);
-    }
+    const renderers = {
+      houseboat: renderHouseboat,
+      sea: renderSeaOfWave,
+      vacation: renderVacation,
+      prairie: renderPrairie,
+      forest: renderForest,
+      maze: renderGoldenMaze,
+      desert: renderDesert,
+      fog: renderFog,
+      path: renderDirtyPath,
+      berries: renderDragonberries,
+      dragon: renderBerryDragon,
+      quicksand: renderQuicksand,
+      treasure: renderTreasure,
+    };
+    const fn = renderers[z.kind] || ((s) => renderPZStub(s, z));
+    fn(zoneStage, z);
     zoneScreen.classList.add("active");
     sparkle();
   }
@@ -805,62 +1043,367 @@
     wrap.className = "pz-stage";
     wrap.innerHTML = `
       <img class="pz-art" src="./assets/zone-berry-dragon-web.jpg" alt="Berry Dragon" draggable="false" />
-      <svg class="smile-overlay" viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
-        <path d="M20 30 Q100 120 180 30" fill="none" stroke="#b02050" stroke-width="10" stroke-linecap="round"/>
-        <path d="M20 30 Q100 120 180 30" fill="#ffb6c8" fill-opacity="0.5" stroke="none"/>
-      </svg>
     `;
     stage.appendChild(wrap);
     const img = wrap.querySelector("img");
-    const smile = wrap.querySelector(".smile-overlay");
-    let taps = 0;
 
-    img.addEventListener("click", (e) => {
+    // Rainbow SVG factory
+    function rainbowSVG() {
+      const colors = ["#e74c3c","#e67e22","#f1c40f","#2ecc71","#3498db","#5b2c82","#9b59b6"];
+      let bands = "";
+      colors.forEach((c, i) => {
+        const r = 100 - i * 10;
+        bands += `<path d="M ${120 - r} 110 A ${r} ${r} 0 0 1 ${120 + r} 110" fill="none" stroke="${c}" stroke-width="10" />`;
+      });
+      return `<svg viewBox="0 0 240 120" xmlns="http://www.w3.org/2000/svg">${bands}</svg>`;
+    }
+
+    // Dragon hitbox: center-right ~ 45%-85% x, 30%-80% y of image
+    function inDragonBody(xRel, yRel) {
+      return xRel > 0.40 && xRel < 0.90 && yRel > 0.25 && yRel < 0.85;
+    }
+
+    function handleTap(e) {
+      e.stopPropagation();
       const rect = img.getBoundingClientRect();
-      const x = (e.clientX - rect.left);
-      const y = (e.clientY - rect.top);
-      const puff = document.createElement("div");
-      puff.className = "puff";
-      puff.textContent = "☁️";
-      puff.style.left = (img.offsetLeft + x) + "px";
-      puff.style.top  = (img.offsetTop + y - 20) + "px";
-      puff.style.animation = `puff-rise ${900 + Math.random()*200}ms ease-out forwards`;
-      wrap.appendChild(puff);
-      setTimeout(() => puff.remove(), 1200);
-      burp();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const xRel = x / rect.width;
+      const yRel = y / rect.height;
 
-      taps++;
-      if (taps >= 5) {
-        taps = 0;
-        // Position smile roughly on dragon face — center of image
-        smile.classList.add("show");
-        happyChord();
-        sparkleBurst(wrap, img.offsetLeft + rect.width / 2, img.offsetTop + rect.height / 2, 20);
-        setTimeout(() => smile.classList.remove("show"), 2200);
+      if (inDragonBody(xRel, yRel)) {
+        // Spit rainbow from tap point
+        const rb = document.createElement("div");
+        rb.className = "rainbow";
+        rb.innerHTML = rainbowSVG();
+        rb.style.left = (img.offsetLeft + x) + "px";
+        rb.style.top  = (img.offsetTop + y) + "px";
+        rb.style.animation = "rainbow-spit 1s ease-out forwards";
+        wrap.appendChild(rb);
+        setTimeout(() => rb.remove(), 1100);
+        risingWhoosh();
+        setTimeout(happyChord, 200);
+        img.classList.remove("dragon-chomp"); void img.offsetWidth;
+        img.classList.add("dragon-chomp");
+      } else {
+        // Fly a berry toward dragon mouth (center of hitbox)
+        const mouthX = rect.width * 0.65;
+        const mouthY = rect.height * 0.55;
+        const b = document.createElement("div");
+        b.className = "flying-berry";
+        const colors = ["#8e44ad","#c0392b","#2980b9","#d35400"];
+        b.style.background = colors[Math.floor(Math.random()*colors.length)];
+        b.style.left = (img.offsetLeft + x - 16) + "px";
+        b.style.top  = (img.offsetTop + y - 16) + "px";
+        b.style.transition = "transform 550ms cubic-bezier(.3,.8,.4,1), opacity 200ms ease 400ms";
+        wrap.appendChild(b);
+        requestAnimationFrame(() => {
+          b.style.transform = `translate(${mouthX - x}px, ${mouthY - y}px) scale(0.4)`;
+          b.style.opacity = "0";
+        });
+        setTimeout(() => {
+          b.remove();
+          img.classList.remove("dragon-chomp"); void img.offsetWidth;
+          img.classList.add("dragon-chomp");
+          happyPop();
+        }, 560);
+      }
+    }
+
+    img.addEventListener("click", handleTap);
+  }
+
+  /* =============================================================
+     v0.4 ZONE HELPERS
+     ============================================================= */
+  function mkStage(stage, id) {
+    stage.className = "paper-bg";
+    const wrap = document.createElement("div");
+    wrap.className = "pz-stage";
+    wrap.innerHTML = `<img class="pz-art" src="./assets/zone-${id}-web.jpg" alt="" draggable="false" />`;
+    stage.appendChild(wrap);
+    return { wrap, img: wrap.querySelector("img") };
+  }
+
+  function relTapXY(img, e) {
+    const r = img.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top, rect: r };
+  }
+
+  /* ---- Polished stub fallback (shouldn't run normally) ---- */
+  function renderPZStub(stage, zone) {
+    const { img } = mkStage(stage, zone.id);
+    img.addEventListener("click", () => popSound());
+  }
+
+  /* ---- House-boat ---- */
+  function renderHouseboat(stage) {
+    const { img } = mkStage(stage, "house-boat");
+    img.addEventListener("click", () => {
+      img.classList.remove("bobbing"); void img.offsetWidth;
+      img.classList.add("bobbing");
+      honk();
+    });
+  }
+
+  /* ---- Treeless Prairie ---- */
+  function renderPrairie(stage) {
+    const { wrap, img } = mkStage(stage, "treeless-prairie");
+    img.addEventListener("click", (e) => {
+      const { x, y } = relTapXY(img, e);
+      flutter();
+      const n = 2 + Math.floor(Math.random() * 2);
+      const colors = ["#f6a6c4","#a6dcf6","#f6e6a6","#c6a6f6","#a6f6c4"];
+      for (let i = 0; i < n; i++) {
+        const b = document.createElement("div");
+        b.className = "butterfly";
+        const c1 = colors[Math.floor(Math.random()*colors.length)];
+        const c2 = colors[Math.floor(Math.random()*colors.length)];
+        b.innerHTML = `<svg viewBox="0 0 40 32">
+          <ellipse class="wing" cx="12" cy="14" rx="10" ry="10" fill="${c1}" stroke="#5a3" stroke-width="1"/>
+          <ellipse class="wing r" cx="28" cy="14" rx="10" ry="10" fill="${c2}" stroke="#5a3" stroke-width="1"/>
+          <rect x="19" y="10" width="2" height="14" fill="#4a2" />
+        </svg>`;
+        b.style.left = (img.offsetLeft + x - 20 + (Math.random()*40 - 20)) + "px";
+        b.style.top  = (img.offsetTop + y - 16) + "px";
+        b.style.setProperty("--fx", (Math.random() * 240 - 120) + "px");
+        b.style.setProperty("--fy", (-320 - Math.random()*200) + "px");
+        b.style.setProperty("--fr", (Math.random() * 40 - 20) + "deg");
+        b.style.animation = `butterfly-fly ${2200 + Math.random()*800}ms ease-out forwards`;
+        wrap.appendChild(b);
+        setTimeout(() => b.remove(), 3100);
       }
     });
   }
 
-  /* =============================================================
-     STUB ZONE (emoji bounce)
-     ============================================================= */
-  function renderStub(stage, zone) {
-    stage.className = zone.bg || "";
-    const wrap = document.createElement("div");
-    wrap.className = "stub";
-    const em = document.createElement("div");
-    em.className = "stub-emoji";
-    em.textContent = zone.emoji;
-    em.addEventListener("click", (e) => {
-      e.stopPropagation();
-      em.classList.remove("bounce");
-      // Force reflow to restart animation
-      void em.offsetWidth;
-      em.classList.add("bounce");
-      popSound();
+  /* ---- Fantastic Forest ---- */
+  function renderForest(stage) {
+    const { wrap, img } = mkStage(stage, "fantastic-forest");
+    const animals = ["🦉","🐰","🦊","🐿️","🐻"];
+    img.addEventListener("click", (e) => {
+      const { x, y } = relTapXY(img, e);
+      const p = document.createElement("div");
+      p.className = "peeker";
+      p.textContent = animals[Math.floor(Math.random() * animals.length)];
+      p.style.left = (img.offsetLeft + x) + "px";
+      p.style.top  = (img.offsetTop + y - 40) + "px";
+      p.style.animation = "peek-in 2s ease-in-out forwards";
+      wrap.appendChild(p);
+      setTimeout(() => p.remove(), 2100);
+      happyPop();
     });
-    wrap.appendChild(em);
-    stage.appendChild(wrap);
+  }
+
+  /* ---- Deserted Desert ---- */
+  function renderDesert(stage) {
+    const { wrap, img } = mkStage(stage, "deserted-desert");
+    const items = ["🪙","🦴","💎","🗝️"];
+    img.addEventListener("click", (e) => {
+      const { x, y } = relTapXY(img, e);
+      const t = document.createElement("div");
+      t.className = "treasure-pop";
+      t.textContent = items[Math.floor(Math.random()*items.length)];
+      t.style.left = (img.offsetLeft + x) + "px";
+      t.style.top  = (img.offsetTop + y) + "px";
+      t.style.animation = "pop-float 1.3s ease-out forwards";
+      wrap.appendChild(t);
+      setTimeout(() => t.remove(), 1400);
+      ascendingChime();
+    });
+  }
+
+  /* ---- Fog of Misdirection ---- */
+  function renderFog(stage) {
+    const { wrap } = mkStage(stage, "fog");
+    // Dim the underlying art a bit for fog vibe
+    wrap.querySelector("img").style.opacity = "0.75";
+    const CLOUD_SVG = `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+      <g fill="#f0f4fa" stroke="#b7c2d4" stroke-width="2">
+        <ellipse cx="60" cy="70" rx="50" ry="32"/>
+        <ellipse cx="110" cy="55" rx="46" ry="36"/>
+        <ellipse cx="150" cy="75" rx="42" ry="30"/>
+        <ellipse cx="90" cy="80" rx="40" ry="24"/>
+      </g>
+    </svg>`;
+    function spawnCloud() {
+      const c = document.createElement("div");
+      c.className = "fog-cloud drift";
+      c.innerHTML = CLOUD_SVG;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      c.style.left = (Math.random() * (vw - 180)) + "px";
+      c.style.top  = (Math.random() * (vh - 240) + 80) + "px";
+      c.style.setProperty("--fog-dx", ((Math.random() * 120) - 60) + "px");
+      c.style.setProperty("--fog-dy", ((Math.random() * 80) - 40) + "px");
+      c.style.setProperty("--fog-dur", (16 + Math.random()*14) + "s");
+      c.style.opacity = String(0.75 + Math.random()*0.2);
+      c.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (c.classList.contains("puff")) return;
+        c.classList.remove("drift");
+        c.classList.add("puff");
+        whoosh();
+        setTimeout(() => {
+          c.remove();
+          setTimeout(spawnCloud, 3000);
+        }, 700);
+      });
+      wrap.appendChild(c);
+    }
+    for (let i = 0; i < 7; i++) spawnCloud();
+  }
+
+  /* ---- Dirty Path of Dirt ---- */
+  function renderDirtyPath(stage) {
+    const { wrap, img } = mkStage(stage, "dirty-path");
+    img.addEventListener("click", (e) => {
+      const { x, y } = relTapXY(img, e);
+      const f = document.createElement("div");
+      f.className = "footprint";
+      f.textContent = "👣";
+      f.style.left = (img.offsetLeft + x) + "px";
+      f.style.top  = (img.offsetTop + y) + "px";
+      f.style.setProperty("--fp-rot", (Math.random() * 80 - 40) + "deg");
+      wrap.appendChild(f);
+      step();
+      setTimeout(() => {
+        f.classList.add("fading");
+        setTimeout(() => f.remove(), 4200);
+      }, 26000);
+    });
+  }
+
+  /* ---- Dragonberries ---- */
+  function renderDragonberries(stage) {
+    const { wrap, img } = mkStage(stage, "dragonberries");
+    const counter = document.createElement("div");
+    counter.className = "berry-counter";
+    counter.textContent = "Berries: 0";
+    stage.appendChild(counter);
+    const basket = document.createElement("div");
+    basket.className = "basket";
+    basket.textContent = "🧺";
+    stage.appendChild(basket);
+
+    let count = 0;
+    const colors = ["#8e44ad","#c0392b","#2980b9","#d35400","#6b2f8a"];
+
+    img.addEventListener("click", (e) => {
+      const { x, y } = relTapXY(img, e);
+      const n = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < n; i++) {
+        const b = document.createElement("div");
+        b.className = "berry";
+        b.style.background = colors[Math.floor(Math.random()*colors.length)];
+        const startX = img.offsetLeft + x + (Math.random()*40 - 20);
+        const startY = img.offsetTop + y;
+        b.style.left = startX + "px";
+        b.style.top  = startY + "px";
+        // Aim loosely toward basket (bottom center of stage)
+        const stageRect = stage.getBoundingClientRect();
+        const basketX = stageRect.width / 2;
+        const basketY = stageRect.height - 60;
+        const dx = (basketX - startX) + (Math.random()*80 - 40);
+        const dy = (basketY - startY);
+        b.style.setProperty("--bx", dx + "px");
+        b.style.setProperty("--by", dy + "px");
+        b.style.setProperty("--br", (Math.random()*720 - 360) + "deg");
+        b.style.animation = `berry-tumble ${900 + Math.random()*300}ms cubic-bezier(.4,.1,.7,1) forwards, berry-fade 300ms ease-out ${1000 + Math.random()*200}ms forwards`;
+        wrap.appendChild(b);
+        setTimeout(() => b.remove(), 1500);
+        pluck();
+        count++;
+      }
+      counter.textContent = "Berries: " + count;
+    });
+  }
+
+  /* ---- Quicksand Pool ---- */
+  function renderQuicksand(stage) {
+    const { wrap } = mkStage(stage, "quicksand");
+    const teddy = document.createElement("div");
+    teddy.className = "teddy";
+    teddy.textContent = "🧸";
+    teddy.style.setProperty("--sink", "0px");
+    wrap.appendChild(teddy);
+
+    let sink = 0;       // px below starting point
+    const MAX_SINK = 140;
+    const RESCUE_THRESHOLD = -80; // above start by 80 = rescued
+    let rescued = false;
+
+    // Slow sink loop
+    const sinkTimer = setInterval(() => {
+      if (rescued) return;
+      sink += 0.6;
+      if (sink > MAX_SINK) sink = MAX_SINK - 2; // never fully gone
+      teddy.style.setProperty("--sink", sink + "px");
+    }, 80);
+
+    // Clean up when zone closes
+    const cleanup = () => clearInterval(sinkTimer);
+    backBtn.addEventListener("click", cleanup, { once: true });
+
+    teddy.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (rescued) return;
+      sink -= 14;
+      if (sink < RESCUE_THRESHOLD) {
+        rescued = true;
+        teddy.classList.add("rescued");
+        teddy.style.setProperty("--sink", RESCUE_THRESHOLD + "px");
+        happyChord();
+        // Confetti from teddy
+        const tRect = teddy.getBoundingClientRect();
+        const wRect = wrap.getBoundingClientRect();
+        for (let i = 0; i < 24; i++) spawnConfetti(wrap,
+          tRect.left - wRect.left + tRect.width/2,
+          tRect.top - wRect.top + tRect.height/2);
+      } else {
+        teddy.style.setProperty("--sink", sink + "px");
+        tug();
+      }
+    });
+  }
+
+  function spawnConfetti(parent, x, y) {
+    const colors = ["#e74c3c","#f1c40f","#2ecc71","#3498db","#9b59b6","#e67e22","#ff6fb3"];
+    const c = document.createElement("div");
+    c.className = "confetti";
+    c.style.background = colors[Math.floor(Math.random()*colors.length)];
+    c.style.left = x + "px";
+    c.style.top  = y + "px";
+    c.style.setProperty("--cx", (Math.random()*500 - 250) + "px");
+    c.style.setProperty("--cy", (-200 - Math.random()*300) + "px");
+    c.style.setProperty("--cr", (Math.random()*1440 - 720) + "deg");
+    c.style.animation = `confetti-fly ${1200 + Math.random()*800}ms ease-out forwards`;
+    parent.appendChild(c);
+    setTimeout(() => c.remove(), 2100);
+  }
+
+  /* ---- Treasure Mountain ---- */
+  function renderTreasure(stage) {
+    const { wrap } = mkStage(stage, "treasure-mountain");
+    const chest = document.createElement("div");
+    chest.className = "chest";
+    chest.textContent = "📦";
+    wrap.appendChild(chest);
+    let opened = false;
+
+    chest.addEventListener("click", (e) => {
+      e.stopPropagation();
+      chest.classList.remove("wobble"); void chest.offsetWidth;
+      chest.classList.add("wobble");
+      if (!opened) {
+        opened = true;
+        setTimeout(() => { chest.textContent = "💎"; }, 200);
+      }
+      triumphant();
+      const rect = chest.getBoundingClientRect();
+      const wRect = wrap.getBoundingClientRect();
+      const cx = rect.left - wRect.left + rect.width/2;
+      const cy = rect.top - wRect.top + rect.height/2;
+      for (let i = 0; i < 22; i++) spawnConfetti(wrap, cx, cy);
+    });
   }
 
   /* =============================================================

@@ -1017,34 +1017,69 @@
 
   // Short low sine with upward sweep — mud bubble pop
   function bloop() {
+    // Louder, bubblier: 3–5 overlapping pitch-rising "blip"s + wet squelch underneath.
+    // Each blip is a short sine whose pitch sweeps UP (classic underwater-bubble shape).
     if (!audioReady || !audioCtx) return;
     const t0 = audioCtx.currentTime;
-    // Bubble pitch sweep (louder, higher — more audible than the old 80→140Hz)
-    const osc = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(180, t0);
-    osc.frequency.exponentialRampToValueAtTime(420, t0 + 0.12);
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.012);
-    g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
-    osc.connect(g).connect(audioCtx.destination);
-    osc.start(t0); osc.stop(t0 + 0.22);
-    // Wet squelch: short low-pass noise burst for mud texture
-    const dur = 0.22;
+
+    // Master gain so all blips share one output for easier mixing
+    const master = audioCtx.createGain();
+    master.gain.value = 1.0;
+    master.connect(audioCtx.destination);
+
+    // --- 3–5 bubble blips
+    const n = 3 + Math.floor(Math.random() * 3); // 3..5
+    for (let i = 0; i < n; i++) {
+      const offset = i === 0 ? 0 : Math.random() * 0.35; // first is immediate
+      const startF = 140 + Math.random() * 220;   // 140–360 Hz start
+      const endF   = startF * (2.2 + Math.random() * 1.2); // sweep up 2.2–3.4x
+      const dur    = 0.08 + Math.random() * 0.10; // 80–180ms
+      const peak   = 0.22 + Math.random() * 0.12; // 0.22–0.34 per-bubble
+
+      const osc = audioCtx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(startF, t0 + offset);
+      osc.frequency.exponentialRampToValueAtTime(endF, t0 + offset + dur);
+
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(0.0001, t0 + offset);
+      g.gain.exponentialRampToValueAtTime(peak, t0 + offset + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + offset + dur + 0.04);
+
+      osc.connect(g).connect(master);
+      osc.start(t0 + offset);
+      osc.stop(t0 + offset + dur + 0.06);
+    }
+
+    // --- Wet squelch underneath: band-limited noise burst for mud texture
+    const dur = 0.35;
     const buf = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * dur), audioCtx.sampleRate);
     const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * (1 - i/d.length) * 0.7;
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * (1 - i/d.length) * 0.8;
     const src = audioCtx.createBufferSource(); src.buffer = buf;
     const lp = audioCtx.createBiquadFilter();
-    lp.type = "lowpass"; lp.frequency.setValueAtTime(900, t0);
-    lp.frequency.exponentialRampToValueAtTime(350, t0 + dur);
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(1200, t0);
+    lp.frequency.exponentialRampToValueAtTime(400, t0 + dur);
+    lp.Q.value = 1.2;
     const g2 = audioCtx.createGain();
     g2.gain.setValueAtTime(0, t0);
-    g2.gain.linearRampToValueAtTime(0.22, t0 + 0.02);
+    g2.gain.linearRampToValueAtTime(0.32, t0 + 0.03);
     g2.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-    src.connect(lp).connect(g2).connect(audioCtx.destination);
+    src.connect(lp).connect(g2).connect(master);
     src.start(t0); src.stop(t0 + dur);
+
+    // --- Final low "glub" pop: sine drop 260 → 90 Hz for the deeper bubble bursting
+    const glub = audioCtx.createOscillator();
+    glub.type = "sine";
+    glub.frequency.setValueAtTime(260, t0 + 0.15);
+    glub.frequency.exponentialRampToValueAtTime(90, t0 + 0.45);
+    const glubG = audioCtx.createGain();
+    glubG.gain.setValueAtTime(0, t0 + 0.15);
+    glubG.gain.exponentialRampToValueAtTime(0.28, t0 + 0.18);
+    glubG.gain.exponentialRampToValueAtTime(0.001, t0 + 0.5);
+    glub.connect(glubG).connect(master);
+    glub.start(t0 + 0.15); glub.stop(t0 + 0.52);
   }
 
   // Soft high-passed noise rustle — grass

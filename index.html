@@ -1514,63 +1514,177 @@
   function renderPrairie(stage) {
     const { wrap, img } = mkStage(stage, "treeless-prairie");
     const BLADE_COLORS = ["#6fae4a", "#8cc65b", "#5a9e3e", "#a3d06e", "#79b851"];
-    const BLADE_SVG = (color) => `<svg viewBox="0 0 12 32" preserveAspectRatio="none">
-      <path d="M6 32 Q3 16 6 0 Q9 16 6 32 Z" fill="${color}" stroke="#3f6e2a" stroke-width="0.8"/>
-    </svg>`;
 
-    const blades = [];
-    function populateBlades() {
-      // Clear existing
-      blades.forEach(b => b.el.remove());
-      blades.length = 0;
+    // Canvas-based grass field — 700 blades at 60fps on mobile.
+    // Each blade is a curved path drawn each frame; bend animates via spring-ish easing,
+    // and the rAF loop is paused when nothing is moving.
+    const canvas = document.createElement("canvas");
+    canvas.style.position = "absolute";
+    canvas.style.pointerEvents = "none"; // let taps pass through to the image
+    canvas.style.zIndex = "4";
+    wrap.appendChild(canvas);
+
+    const ctx = canvas.getContext("2d");
+    const dpr = Math.min(window.devicePixelRatio || 1, 2); // cap DPR for perf
+    let blades = [];
+    let needDraw = true;
+    let rafId = null;
+    let lastFrame = 0;
+
+    function sizeCanvas() {
       const w = img.clientWidth, h = img.clientHeight;
-      if (!w || !h) return;
+      if (!w || !h) return false;
+      canvas.style.left = img.offsetLeft + "px";
+      canvas.style.top  = img.offsetTop  + "px";
+      canvas.style.width  = w + "px";
+      canvas.style.height = h + "px";
+      canvas.width  = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return true;
+    }
+
+    function populateBlades() {
+      if (!sizeCanvas()) return;
+      const w = img.clientWidth, h = img.clientHeight;
+      blades = [];
       const n = 700;
       for (let i = 0; i < n; i++) {
-        const el = document.createElement("div");
-        el.className = "grass-blade";
-        const color = BLADE_COLORS[Math.floor(Math.random()*BLADE_COLORS.length)];
-        el.innerHTML = BLADE_SVG(color);
-        const bx = Math.random() * (w - 10) + 5;
-        const by = h * 0.25 + Math.random() * (h * 0.72);
-        const size = 14 + Math.random() * 24;
-        const bladeW = 4 + Math.random() * 4;
-        el.style.left = (img.offsetLeft + bx - bladeW/2) + "px";
-        el.style.top  = (img.offsetTop  + by - size) + "px";
-        el.style.width = bladeW + "px";
-        el.style.height = size + "px";
-        el.style.opacity = (0.75 + Math.random() * 0.25).toString();
-        wrap.appendChild(el);
-        blades.push({ el, x: bx, y: by });
+        const color = BLADE_COLORS[(Math.random() * BLADE_COLORS.length) | 0];
+        blades.push({
+          x: Math.random() * (w - 10) + 5,
+          y: h * 0.25 + Math.random() * (h * 0.72),
+          height: 14 + Math.random() * 24,
+          width: 4 + Math.random() * 4,
+          color,
+          stroke: "#3f6e2a",
+          alpha: 0.75 + Math.random() * 0.25,
+          // Random baseline lean so the field isn't perfectly upright
+          base: (Math.random() - 0.5) * 4,
+          bend: 0,         // current bend angle in degrees
+          target: 0,       // target bend angle
+          velocity: 0,     // for spring dynamics
+        });
+      }
+      needDraw = true;
+      requestFrame();
+    }
+
+    function drawBlade(b) {
+      // Draw a curved blade bending by (base + bend) degrees at its tip.
+      const angle = (b.base + b.bend) * Math.PI / 180;
+      const tipDx = Math.sin(angle) * b.height;
+      const tipDy = -Math.cos(angle) * b.height;
+      const tipX = b.x + tipDx;
+      const tipY = b.y + tipDy;
+      // Control point at roughly 60% height, curved slightly
+      const midX = b.x + tipDx * 0.55 + Math.cos(angle) * (b.width * 0.15);
+      const midY = b.y + tipDy * 0.55;
+      ctx.globalAlpha = b.alpha;
+      ctx.fillStyle = b.color;
+      ctx.strokeStyle = b.stroke;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      // Left edge of base
+      ctx.moveTo(b.x - b.width / 2, b.y);
+      // Up to tip via quadratic
+      ctx.quadraticCurveTo(midX - b.width * 0.2, midY, tipX, tipY);
+      // Back down the right edge
+      ctx.quadraticCurveTo(midX + b.width * 0.2, midY, b.x + b.width / 2, b.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    function draw() {
+      const w = img.clientWidth, h = img.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+      // Sort-ish: draw back to front for a bit of depth (skip actual sort for perf; random y is close enough)
+      for (let i = 0; i < blades.length; i++) drawBlade(blades[i]);
+      ctx.globalAlpha = 1;
+    }
+
+    // Spring physics: pull bend toward target, damped.
+    // Returns true if anything is still moving.
+    function step(dt) {
+      let moving = false;
+      const k = 0.018;   // stiffness
+      const d = 0.82;    // damping
+      for (let i = 0; i < blades.length; i++) {
+        const b = blades[i];
+        const diff = b.target - b.bend;
+        if (Math.abs(diff) < 0.05 && Math.abs(b.velocity) < 0.05 && b.target === 0) {
+          b.bend = 0; b.velocity = 0;
+          continue;
+        }
+        b.velocity += diff * k * dt;
+        b.velocity *= d;
+        b.bend += b.velocity * dt;
+        // When we’re very close to target and target != 0, start returning to zero
+        if (b.target !== 0 && Math.abs(diff) < 0.4 && Math.abs(b.velocity) < 0.6) {
+          b.target = 0;
+        }
+        moving = true;
+      }
+      return moving;
+    }
+
+    function tick(now) {
+      const dt = Math.min(2.5, (now - (lastFrame || now)) / 16.67); // frames-ish
+      lastFrame = now;
+      const moving = step(dt);
+      draw();
+      if (moving) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        rafId = null;
+        lastFrame = 0;
+      }
+    }
+
+    function requestFrame() {
+      if (rafId == null) {
+        lastFrame = 0;
+        rafId = requestAnimationFrame(tick);
       }
     }
 
     if (img.complete) populateBlades();
     else img.addEventListener("load", populateBlades, { once: true });
-    // Re-populate on resize (debounced lightly)
     let resizeT;
     const onResize = () => { clearTimeout(resizeT); resizeT = setTimeout(populateBlades, 200); };
     window.addEventListener("resize", onResize);
-    backBtn.addEventListener("click", () => window.removeEventListener("resize", onResize), { once: true });
+    backBtn.addEventListener("click", () => {
+      window.removeEventListener("resize", onResize);
+      if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
+    }, { once: true });
 
     img.addEventListener("click", (e) => {
       const { x, y } = relTapXY(img, e);
       windGust();
       grassRustle();
-      // Ripple: bend blades with delay proportional to distance
-      blades.forEach(b => {
+      // Ripple: blades within radius get a bend impulse, delayed by distance.
+      // We touch only blades inside a bbox for perf — iterating all 700 is fine but no reason to do work outside the radius.
+      const R = 340;
+      const R2 = R * R;
+      // Drop repeated timers by using a simple time-based delay encoded in the blade itself.
+      const now = performance.now();
+      for (let i = 0; i < blades.length; i++) {
+        const b = blades[i];
         const dx = b.x - x, dy = b.y - y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist > 340) return;
+        const dd = dx*dx + dy*dy;
+        if (dd > R2) continue;
+        const dist = Math.sqrt(dd);
         const delay = Math.min(700, dist * 1.6);
         const bend = -18 - Math.random() * 14;
+        // Stagger via setTimeout — but all inside the same rAF loop, so timers just set target+velocity.
         setTimeout(() => {
-          b.el.style.setProperty("--bend", bend + "deg");
-          b.el.style.animation = "none";
-          void b.el.offsetWidth;
-          b.el.style.animation = `grass-bend ${500 + Math.random()*200}ms ease-out`;
+          b.target = bend;
+          // Give it a starting velocity so it snaps over more believably
+          b.velocity = bend * 0.35;
+          requestFrame();
         }, delay);
-      });
+      }
     });
   }
 

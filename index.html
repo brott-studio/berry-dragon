@@ -398,11 +398,13 @@
     /* Desert tumbleweed */
     .tumbleweed {
       position: absolute;
-      font-size: 56px;
+      width: 64px;
+      height: 64px;
       pointer-events: none;
       filter: drop-shadow(0 4px 6px rgba(80,60,20,0.45));
       will-change: transform;
     }
+    .tumbleweed svg { width: 100%; height: 100%; }
     @keyframes tumble-roll {
       0%   { transform: translate(0,0) rotate(0deg); }
       100% { transform: translate(var(--tx, 120vw), var(--ty, -20px)) rotate(var(--tr, 1440deg)); }
@@ -1323,12 +1325,20 @@
   /* ---- Deserted Desert ---- */
   function renderDesert(stage) {
     const { wrap, img } = mkStage(stage, "deserted-desert");
+    // Tumbleweed as an SVG: tangled branchy circle
+    const TUMBLEWEED_SVG = `<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+      <g fill="none" stroke="#7a4a1f" stroke-width="2.2" stroke-linecap="round">
+        <circle cx="40" cy="40" r="30" stroke="#8b5a2b" stroke-width="2.5"/>
+        <path d="M14 30 L60 50 M20 50 L66 30 M16 44 L64 42 M30 14 L50 64 M44 16 L40 62 M22 22 L54 58 M58 22 L26 58"/>
+        <path d="M35 18 Q42 28 30 38 M50 28 Q44 40 58 46 M22 40 Q36 48 28 58 M46 52 Q58 48 54 36" stroke="#6b3a14" stroke-width="1.6"/>
+      </g>
+    </svg>`;
     img.addEventListener("click", (e) => {
       const { x, y } = relTapXY(img, e);
       // Roll a tumbleweed across the image from the tap point to the opposite side
       const tw = document.createElement("div");
       tw.className = "tumbleweed";
-      tw.textContent = "🌿";
+      tw.innerHTML = TUMBLEWEED_SVG;
       // Start from left side of stage if tap is on right half, else from right side
       const fromLeft = x > img.width / 2;
       const startX = fromLeft ? -80 : img.width + 80;
@@ -1350,7 +1360,8 @@
   function renderFog(stage) {
     const { wrap } = mkStage(stage, "fog");
     // Dim the underlying art a bit for fog vibe
-    wrap.querySelector("img").style.opacity = "0.75";
+    const zoneImg = wrap.querySelector("img");
+    zoneImg.style.opacity = "0.75";
     const CLOUD_SVG = `<svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
       <g fill="#f0f4fa" stroke="#b7c2d4" stroke-width="2">
         <ellipse cx="60" cy="70" rx="50" ry="32"/>
@@ -1359,13 +1370,19 @@
         <ellipse cx="90" cy="80" rx="40" ry="24"/>
       </g>
     </svg>`;
-    function spawnCloud() {
+    function spawnCloud(atX, atY) {
       const c = document.createElement("div");
       c.className = "fog-cloud drift";
       c.innerHTML = CLOUD_SVG;
       const vw = window.innerWidth, vh = window.innerHeight;
-      c.style.left = (Math.random() * (vw - 180)) + "px";
-      c.style.top  = (Math.random() * (vh - 240) + 80) + "px";
+      if (atX == null) {
+        c.style.left = (Math.random() * (vw - 180)) + "px";
+        c.style.top  = (Math.random() * (vh - 240) + 80) + "px";
+      } else {
+        // Position centered on tap point (cloud svg is ~180x100 with transform offsets)
+        c.style.left = (atX - 90) + "px";
+        c.style.top  = (atY - 50) + "px";
+      }
       c.style.setProperty("--fog-dx", ((Math.random() * 120) - 60) + "px");
       c.style.setProperty("--fog-dy", ((Math.random() * 80) - 40) + "px");
       c.style.setProperty("--fog-dur", (16 + Math.random()*14) + "s");
@@ -1383,6 +1400,12 @@
       });
       wrap.appendChild(c);
     }
+    // Tapping the underlying image (not a cloud) spawns a new fog cloud at tap point.
+    zoneImg.addEventListener("click", (e) => {
+      const { x, y } = relTapXY(zoneImg, e);
+      spawnCloud(zoneImg.offsetLeft + x, zoneImg.offsetTop + y);
+      whoosh();
+    });
     for (let i = 0; i < 7; i++) spawnCloud();
   }
 
